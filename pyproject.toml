@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "teamsync"
+version = "0.1.0"
+description = "Ingest NetSuite journal-entry exports from Box into SQLite behind a small web app"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "jinja2>=3.1",
+  "pydantic-settings>=2.4",
+  "python-multipart>=0.0.9",
+  "python-calamine>=0.3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "httpx>=0.27",
+  "ruff>=0.6",
+  # fixture generation only
+  "openpyxl>=3.1",
+  "xlwt>=1.3",
+  "odfpy>=1.4",
+]
+
+[project.scripts]
+teamsync = "teamsync.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["teamsync*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.setuptools.package-data]
+teamsync = ["db/migrations/*.sql", "web/templates/*.html", "web/static/*"]

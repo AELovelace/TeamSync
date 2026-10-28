@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Admin</h1>
+
+{% if new_token %}
+<div class="flash ok">
+  <strong>New device token. Copy it now, it is not shown again.</strong>
+  <pre class="token">{{ new_token }}</pre>
+</div>
+{% endif %}
+
+<div class="cols">
+<section>
+  <h2>Ingest</h2>
+  <form method="post" action="/admin/upload" enctype="multipart/form-data" class="stack">
+    <label>Upload files <input type="file" name="files" multiple required></label>
+    <button>Upload and parse</button>
+  </form>
+  <form method="post" action="/admin/sync" class="inline">
+    <button {% if not watch_dir %}disabled title="No TEAMSYNC_WATCH_DIR configured"{% endif %}>Sync watch dir now</button>
+    {% if watch_dir %}<span class="muted"><code>{{ watch_dir }}</code> every {{ sync_interval }}s</span>{% endif %}
+  </form>
+  <form method="post" action="/admin/reparse" class="inline" onsubmit="return confirm('Re-run the parser over every stored file?')">
+    <button>Reparse all stored files</button>
+  </form>
+
+  <h2>Device tokens</h2>
+  <p class="muted">Used by the push script on the Box workstation. Send as <code>Authorization: Bearer &lt;token&gt;</code>.</p>
+  <table class="compact">
+    <tr><th>Name</th><th>Prefix</th><th>Created</th><th>Last used</th><th></th></tr>
+    {% for t in tokens %}
+    <tr class="{% if t.revoked_at %}muted{% endif %}">
+      <td>{{ t.name }}</td><td class="mono">tsk_{{ t.token_prefix }}_…</td>
+      <td class="muted">{{ t.created_at }} {% if t.created_by %}by {{ t.created_by }}{% endif %}</td>
+      <td class="muted">{{ t.last_used_at or 'never' }}</td>
+      <td>{% if t.revoked_at %}revoked{% else %}<form method="post" action="/admin/tokens/{{ t.id }}/revoke" class="inline"><button class="link">revoke</button></form>{% endif %}</td>
+    </tr>
+    {% else %}<tr><td colspan="5" class="muted">None.</td></tr>{% endfor %}
+  </table>
+  <form method="post" action="/admin/tokens" class="inline">
+    <input name="name" placeholder="token name, e.g. edith-workstation" required>
+    <button>Create token</button>
+  </form>
+</section>
+
+<section>
+  <h2>Users</h2>
+  <table class="compact">
+    <tr><th>User</th><th>Role</th><th>Created</th><th></th></tr>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.username }}</td>
+      <td>
+        {% if u.id == user.id %}{{ u.role }}{% else %}
+        <form method="post" action="/admin/users/{{ u.id }}/role" class="inline">
+          <select name="role" onchange="this.form.submit()">
+            <option value="viewer" {% if u.role == 'viewer' %}selected{% endif %}>viewer</option>
+            <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>admin</option>
+          </select>
+        </form>
+        {% endif %}
+      </td>
+      <td class="muted">{{ u.created_at }}</td>
+      <td>
+        <form method="post" action="/admin/users/{{ u.id }}/password" class="inline">
+          <input name="password" type="password" placeholder="new password" autocomplete="new-password" required>
+          <button class="link">set</button>
+        </form>
+        {% if u.id != user.id %}
+        <form method="post" action="/admin/users/{{ u.id }}/delete" class="inline" onsubmit="return confirm('Delete {{ u.username }}?')"><button class="link">delete</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <h3>Add a user</h3>
+  <form method="post" action="/admin/users" class="stack">
+    <input name="username" placeholder="username" autocomplete="off" required>
+    <input name="password" type="password" placeholder="password (10+ chars)" autocomplete="new-password" required>
+    <select name="role"><option value="viewer">viewer</option><option value="admin">admin</option></select>
+    <button>Add user</button>
+  </form>
+</section>
+</div>
+
+<section>
+  <h2>Run history</h2>
+  <table class="compact">
+    <tr><th>#</th><th>Trigger</th><th>Status</th><th>Seen</th><th>New</th><th>Dup</th><th>Failed</th><th>Started</th><th>Finished</th><th>Error</th></tr>
+    {% for r in runs %}
+    <tr>
+      <td>{{ r.id }}</td><td>{{ r.trigger_source }}</td><td><span class="status {{ r.status }}">{{ r.status }}</span></td>
+      <td class="num">{{ r.files_seen }}</td><td class="num">{{ r.files_new }}</td><td class="num">{{ r.files_duplicate }}</td><td class="num">{{ r.files_failed }}</td>
+      <td class="muted">{{ r.started_at }}</td><td class="muted">{{ r.finished_at or '' }}</td><td class="muted small">{{ r.error or '' }}</td>
+    </tr>
+    {% else %}<tr><td colspan="10" class="muted">No runs yet.</td></tr>{% endfor %}
+  </table>
+</section>
+{% endblock %}

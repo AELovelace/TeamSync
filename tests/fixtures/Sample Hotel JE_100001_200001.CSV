@@ -1,0 +1,11 @@
+subsidiary,postingperiod,journalItemheader_memo,tranDate,journalItemLine_accountRef,journalItemLine_debitAmount,journalItemLine_creditAmount,journalItemLine_memo,journalItemLine_departmentRef,journalItemLine_classRef,journalItemLine_locationRef
+41,10/15/2026,100001.200001.4000001,10/20/2026,279,,1500.00,,Administration:G&A:General Manager,,61
+41,10/15/2026,100001.200001.4000001,10/20/2026,279,,4250.75,,Operations:Hotel Ops:Front Office:Front Desk Agent,,61
+41,10/15/2026,100001.200001.4000001,10/20/2026,279,,6100.25,,Operations:Hotel Ops:Housekeeping:Housekeeper,,61
+41,10/15/2026,100001.200001.4000001,10/20/2026,761,12.50,,,Operations:Hotel Ops:Front Office:Front Desk Agent,,61
+41,10/15/2026,100001.200001.4000001,10/20/2026,767,1300.00,,,Administration:G&A:General Manager,,61
+41,10/15/2026,100001.200001.4000001,10/20/2026,767,3700.00,,,Operations:Hotel Ops:Front Office:Front Desk Agent,,61
+41,10/15/2026,100001.200001.4000001,10/20/2026,767,5400.00,,,Operations:Hotel Ops:Housekeeping:Housekeeper,,61
+41,10/15/2026,100001.200001.4000001,10/20/2026,773,200.00,,,Administration:G&A:General Manager,,61
+41,10/15/2026,100001.200001.4000001,10/20/2026,773,538.25,,,Operations:Hotel Ops:Front Office:Front Desk Agent,,61
+41,10/15/2026,100001.200001.4000001,10/20/2026,773,700.25,,,Operations:Hotel Ops:Housekeeping:Housekeeper,,61

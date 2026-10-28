@@ -1,0 +1,3 @@
+subsidiary,postingperiod,journalItemheader_memo,tranDate,journalItemLine_accountRef,journalItemLine_debitAmount,journalItemLine_creditAmount,journalItemLine_memo,journalItemLine_departmentRef,journalItemLine_classRef,journalItemLine_locationRef
+44,10/15/2026,100005.200005.4000005,10/20/2026,279,,100.00,,Café,,64
+44,10/15/2026,100005.200005.4000005,10/20/2026,767,100.00,,,Café,,64

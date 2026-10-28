@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_macros.html" import entry_rows %}
+{% block content %}
+<h1>Entries <span class="muted">{{ total }}</span></h1>
+
+<form class="filters" method="get" action="/entries">
+  <input name="q" placeholder="property" value="{{ filters.q }}">
+  <select name="flag">
+    <option value="">any flag state</option>
+    <option value="any" {% if filters.flag == 'any' %}selected{% endif %}>flagged</option>
+    {% for name in flag_descriptions %}
+    <option value="{{ name }}" {% if filters.flag == name %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
+  <select name="batch_folder">
+    <option value="">any batch folder</option>
+    {% for b in batch_folders %}<option value="{{ b }}" {% if filters.batch_folder == b %}selected{% endif %}>{{ b }}</option>{% endfor %}
+  </select>
+  <input name="date_from" type="date" value="{{ filters.date_from }}">
+  <input name="date_to" type="date" value="{{ filters.date_to }}">
+  <button type="submit">Filter</button>
+  <a href="/entries">clear</a>
+  <a class="right" href="/api/export/entries.csv{% if query_string %}?{{ query_string }}{% endif %}">Export CSV</a>
+</form>
+
+<table>
+  <tr><th>#</th><th>Date</th><th>Property</th><th>Payroll.Batch</th><th>Lines</th><th>Debit</th><th>Flags</th><th>Batch folder</th></tr>
+  {{ entry_rows(rows) }}
+  {% if not rows %}<tr><td colspan="8" class="muted">No entries match.</td></tr>{% endif %}
+</table>
+
+{% if pages > 1 %}
+<nav class="pager">
+  {% if page > 1 %}<a href="/entries?{{ query_string }}&page={{ page - 1 }}">previous</a>{% endif %}
+  <span>page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}<a href="/entries?{{ query_string }}&page={{ page + 1 }}">next</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

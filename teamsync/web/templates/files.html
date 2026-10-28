@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Files</h1>
+<form class="filters" method="get" action="/files">
+  <select name="status" onchange="this.form.submit()">
+    <option value="">all statuses</option>
+    {% for s in ['parsed', 'unsupported', 'unrecognized_layout', 'failed'] %}
+    <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+</form>
+<table>
+  <tr><th>#</th><th>File</th><th>Kind</th><th>Status</th><th>Source</th><th>Batch folder</th><th>Size</th><th>Received</th><th>Entry</th></tr>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.id }}</td>
+    <td><a href="/files/{{ r.id }}/download">{{ r.original_name }}</a>{% if r.parse_error %}<div class="muted small">{{ r.parse_error }}</div>{% endif %}</td>
+    <td>{{ r.file_kind }}</td>
+    <td><span class="status {{ r.parse_status }}">{{ r.parse_status }}</span></td>
+    <td>{{ r.source_kind }}{% if r.source_path %}<div class="muted small">{{ r.source_path }}</div>{% endif %}</td>
+    <td class="muted">{{ r.batch_folder or '' }}</td>
+    <td class="num">{{ r.size_bytes }}</td>
+    <td class="muted">{{ r.received_at }}</td>
+    <td>{% if entry_ids.get(r.id) %}<a href="/entries/{{ entry_ids[r.id] }}">{{ entry_ids[r.id] }}</a>{% endif %}</td>
+  </tr>
+  {% else %}<tr><td colspan="9" class="muted">No files.</td></tr>{% endfor %}
+</table>
+{% endblock %}

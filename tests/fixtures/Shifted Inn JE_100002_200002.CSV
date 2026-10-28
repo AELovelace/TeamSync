@@ -1,0 +1,5 @@
+subsidiary,postingperiod,journalItemheader_memo,tranDate,journalItemLine_accountRef,journalItemLine_debitAmount,journalItemLine_creditAmount,journalItemLine_memo,journalItemLine_departmentRef,journalItemLine_classRef,journalItemLine_locationRef
+42,10/15/2026,100002.200002.4000002,10/20/2026,42,,1000.00,42,42,42,42
+42,10/15/2026,100002.200002.4000002,10/20/2026,42,,2000.00,42,42,42,42
+42,10/15/2026,100002.200002.4000002,10/20/2026,42,2500.00,,42,42,42,42
+42,10/15/2026,100002.200002.4000002,10/20/2026,42,500.00,,42,42,42,42

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "_macros.html" import flag_badges %}
+{% block title %}Entry {{ entry.id }} · TeamSync{% endblock %}
+{% block content %}
+<p><a href="/entries">&larr; entries</a></p>
+<h1>
+  {% if canonical %}{{ canonical.canonical_name }} <span class="muted">({{ entry.property_name_raw }})</span>{% else %}{{ entry.property_name_raw }}{% endif %}
+  <span class="muted mono">{{ entry.payroll_id }}.{{ entry.batch_id }}{% if entry.run_id %}.{{ entry.run_id }}{% endif %}</span>
+</h1>
+
+<div class="cols">
+  <dl class="facts">
+    <dt>Transaction date</dt><dd>{{ entry.tran_date }}</dd>
+    <dt>Posting period</dt><dd>{{ entry.posting_period }}</dd>
+    <dt>Header memo</dt><dd class="mono">{{ entry.header_memo }}</dd>
+    <dt>Subsidiaries</dt><dd>{{ subsidiaries | join(', ') }}</dd>
+    <dt>Locations</dt><dd>{{ locations | join(', ') }}</dd>
+    <dt>Department style</dt><dd>{{ entry.dept_style }}</dd>
+    <dt>Totals</dt><dd>debit {{ entry.total_debit }} · credit {{ entry.total_credit }} · {% if entry.is_balanced %}balanced{% else %}<strong class="bad-text">unbalanced</strong>{% endif %}</dd>
+    <dt>Parser</dt><dd>v{{ entry.parser_version }} at {{ entry.parsed_at }}</dd>
+  </dl>
+  <dl class="facts">
+    <dt>Source file</dt><dd><a href="/files/{{ entry.source_file_id }}/download">{{ entry.original_name }}</a> <span class="muted">({{ entry.file_kind }})</span></dd>
+    <dt>Batch folder</dt><dd>{{ entry.batch_folder or '—' }}</dd>
+    <dt>Received</dt><dd>{{ entry.received_at }}</dd>
+    <dt>SHA-256</dt><dd class="mono small">{{ entry.sha256 }}</dd>
+    {% if not canonical and user.role == 'admin' %}
+    <dt>Mapping</dt><dd><a href="/properties">map '{{ entry.property_name_raw }}' to a property</a></dd>
+    {% endif %}
+  </dl>
+</div>
+
+{% if flags %}
+<section>
+  <h2>Flags</h2>
+  <ul class="flaglist">
+    {% for f in flags %}<li><span class="flag">{{ f }}</span> {{ flag_descriptions.get(f, '') }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if siblings %}
+<section>
+  <h2>Other files with the same payroll and batch</h2>
+  <table class="compact">
+    <tr><th>#</th><th>File</th><th>Lines</th><th>Debit</th><th>Received</th><th>Flags</th></tr>
+    {% for s in siblings %}
+    <tr><td><a href="/entries/{{ s.id }}">{{ s.id }}</a></td><td>{{ s.original_name }}</td><td class="num">{{ s.line_count }}</td><td class="num">{{ s.total_debit }}</td><td class="muted">{{ s.received_at }}</td><td>{{ flag_badges(s.validation_flags | flags) }}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endif %}
+
+<section>
+  <h2>Lines <span class="muted">{{ lines | length }}</span></h2>
+  <table class="lines">
+    <tr><th>#</th><th>Sub</th><th>Account</th><th>Debit</th><th>Credit</th><th>Department</th><th>Style</th><th>Class</th><th>Loc</th><th>Memo</th></tr>
+    {% for l in lines %}
+    <tr>
+      <td class="num">{{ l.line_no }}</td>
+      <td>{{ l.subsidiary }}</td>
+      <td class="{% if not l.account_is_numeric %}bad-text{% endif %}">{{ l.account_ref }}</td>
+      <td class="num">{{ l.debit or '' }}</td>
+      <td class="num">{{ l.credit or '' }}</td>
+      <td>{{ l.department_ref }}</td>
+      <td class="muted">{{ l.department_style }}</td>
+      <td>{{ l.class_ref }}</td>
+      <td>{{ l.location_ref }}</td>
+      <td>{{ l.line_memo }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="total"><td colspan="3">Total</td><td class="num">{{ entry.total_debit }}</td><td class="num">{{ entry.total_credit }}</td><td colspan="5"></td></tr>
+  </table>
+</section>
+{% endblock %}

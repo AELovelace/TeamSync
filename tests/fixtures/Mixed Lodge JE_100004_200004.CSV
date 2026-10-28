@@ -1,0 +1,6 @@
+subsidiary,postingperiod,journalItemheader_memo,tranDate,journalItemLine_accountRef,journalItemLine_debitAmount,journalItemLine_creditAmount,journalItemLine_memo,journalItemLine_departmentRef,journalItemLine_classRef,journalItemLine_locationRef
+43,10/15/2026,999999.888888.4000004,10/20/2026,279,,800.00,,101,,63
+43,10/15/2026,999999.888888.4000004,10/20/2026,279,,400.00,,HOUSEKEEPING,,63
+43,10/15/2026,999999.888888.4000004,10/20/2026,767,700.00,,,101,,63
+43,10/15/2026,999999.888888.4000004,10/20/2026,767,350.00,,,Operations:Hotel Ops:Housekeeping,,63
+43,10/15/2026,999999.888888.4000004,10/20/2026,773,149.99,,,101,,63

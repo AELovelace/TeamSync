@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Properties</h1>
+<p class="muted">Raw property names come from filenames and are never changed. Mapping a raw name to a property only affects how entries are labelled and searched.</p>
+
+<div class="cols">
+<section>
+  <h2>Raw names seen</h2>
+  <table class="compact">
+    <tr><th>Raw name</th><th>Entries</th><th>Last seen</th><th>Mapped to</th>{% if user.role == 'admin' %}<th></th>{% endif %}</tr>
+    {% for r in raw_names %}
+    <tr>
+      <td>{{ r.property_name_raw }}</td>
+      <td class="num">{{ r.entries }}</td>
+      <td class="muted">{{ r.last_seen }}</td>
+      <td>{% if r.canonical_name %}{{ r.canonical_name }}{% else %}<span class="muted">unmapped</span>{% endif %}</td>
+      {% if user.role == 'admin' %}
+      <td>
+        {% if r.canonical_name %}
+        <form method="post" action="/properties/alias/delete" class="inline"><input type="hidden" name="alias" value="{{ r.property_name_raw }}"><button class="link">unmap</button></form>
+        {% else %}
+        <form method="post" action="/properties/alias" class="inline">
+          <input type="hidden" name="alias" value="{{ r.property_name_raw }}">
+          <select name="property_id"><option value="">existing…</option>{% for p in properties %}<option value="{{ p.id }}">{{ p.canonical_name }}</option>{% endfor %}</select>
+          <input name="new_name" placeholder="or new name" size="14">
+          <button>map</button>
+        </form>
+        {% endif %}
+      </td>
+      {% endif %}
+    </tr>
+    {% else %}<tr><td colspan="5" class="muted">No entries yet.</td></tr>{% endfor %}
+  </table>
+</section>
+
+<section>
+  <h2>Properties</h2>
+  <table class="compact">
+    <tr><th>Name</th><th>Subsidiary</th><th>Location</th><th>Aliases</th>{% if user.role == 'admin' %}<th></th>{% endif %}</tr>
+    {% for p in properties %}
+    <tr>
+      <td>{{ p.canonical_name }}</td>
+      <td>{{ p.netsuite_subsidiary or '' }}</td>
+      <td>{{ p.netsuite_location or '' }}</td>
+      <td>{{ p.aliases | join(', ') }}</td>
+      {% if user.role == 'admin' %}<td><form method="post" action="/properties/{{ p.id }}/delete" class="inline" onsubmit="return confirm('Delete {{ p.canonical_name }} and its aliases?')"><button class="link">delete</button></form></td>{% endif %}
+    </tr>
+    {% else %}<tr><td colspan="5" class="muted">None yet.</td></tr>{% endfor %}
+  </table>
+  {% if user.role == 'admin' %}
+  <h3>Add a property</h3>
+  <form method="post" action="/properties" class="stack">
+    <input name="canonical_name" placeholder="Canonical name" required>
+    <input name="netsuite_subsidiary" placeholder="NetSuite subsidiary ID">
+    <input name="netsuite_location" placeholder="NetSuite location ID">
+    <input name="alias" placeholder="First alias (optional)">
+    <button>Add</button>
+  </form>
+  {% endif %}
+</section>
+</div>
+{% endblock %}

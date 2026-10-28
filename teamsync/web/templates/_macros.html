@@ -1,0 +1,25 @@
+{% macro flag_badges(flags) -%}
+  {%- for f in flags -%}
+    <span class="flag" title="{{ flag_descriptions.get(f, f) }}">{{ f }}</span>
+  {%- endfor -%}
+{%- endmacro %}
+
+{% macro entry_rows(rows, show_property=True) -%}
+  {% for r in rows %}
+  <tr>
+    <td><a href="/entries/{{ r.id }}">{{ r.id }}</a></td>
+    <td>{{ r.tran_date }}</td>
+    {% if show_property %}
+    <td>
+      {% if r.canonical_name %}{{ r.canonical_name }} <span class="muted">({{ r.property_name_raw }})</span>
+      {% else %}{{ r.property_name_raw }}{% endif %}
+    </td>
+    {% endif %}
+    <td class="mono">{{ r.payroll_id }}.{{ r.batch_id }}</td>
+    <td class="num">{{ r.line_count }}</td>
+    <td class="num">{{ r.total_debit }}</td>
+    <td>{% if not r.is_balanced %}<span class="flag bad">unbalanced</span>{% endif %}{{ flag_badges(r.validation_flags | flags) }}</td>
+    <td class="muted">{{ r.batch_folder or '' }}</td>
+  </tr>
+  {% endfor %}
+{%- endmacro %}

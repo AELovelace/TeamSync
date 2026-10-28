@@ -1,0 +1,22 @@
+[Unit]
+Description=TeamSync journal-entry ingestion
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+Group=__APP_GROUP__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=__APP_ENV_FILE__
+ExecStart=__APP_DIR__/.venv/bin/teamsync serve
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=__APP_DATA_DIR__
+
+[Install]
+WantedBy=multi-user.target

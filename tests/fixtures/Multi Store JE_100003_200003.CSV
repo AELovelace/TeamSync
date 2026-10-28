@@ -1,0 +1,7 @@
+subsidiary,postingperiod,journalItemheader_memo,tranDate,journalItemLine_accountRef,journalItemLine_debitAmount,journalItemLine_creditAmount,journalItemLine_memo,journalItemLine_departmentRef,journalItemLine_classRef,journalItemLine_locationRef
+51,10/15/2026,100003.200003.4000003,10/20/2026,Payroll Clearing,,3000.00,,,,71
+51,10/15/2026,100003.200003.4000003,10/20/2026,767,2700.00,,,,,71
+51,10/15/2026,100003.200003.4000003,10/20/2026,773,300.00,,,,,71
+52,10/15/2026,100003.200003.4000003,10/20/2026,Payroll Clearing,,1200.00,,1,,72
+52,10/15/2026,100003.200003.4000003,10/20/2026,767,1080.00,,,1,,72
+52,10/15/2026,100003.200003.4000003,10/20/2026,773,120.00,,,1,,72

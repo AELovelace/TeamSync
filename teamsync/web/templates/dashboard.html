@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_macros.html" import entry_rows, flag_badges %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="tiles">
+  <div class="tile"><div class="n">{{ summary.entries }}</div><div class="l">journal entries</div></div>
+  <div class="tile"><div class="n">{{ summary.lines }}</div><div class="l">lines</div></div>
+  <div class="tile"><div class="n">{{ summary.files }}</div><div class="l">files stored</div></div>
+  <div class="tile {% if summary.entries_flagged %}warn{% endif %}"><div class="n">{{ summary.entries_flagged }}</div><div class="l">entries flagged</div></div>
+  <div class="tile {% if summary.files_failed %}bad{% endif %}"><div class="n">{{ summary.files_failed }}</div><div class="l">files failed</div></div>
+  <div class="tile"><div class="n small">{{ summary.last_run_finished_at or 'never' }}</div><div class="l">last run</div></div>
+</div>
+
+<div class="cols">
+  <section>
+    <h2>Flag counts</h2>
+    {% if summary.flag_counts %}
+    <table class="compact">
+      {% for name, n in summary.flag_counts.items() %}
+      <tr><td><a href="/entries?flag={{ name }}">{{ name }}</a></td><td class="num">{{ n }}</td><td class="muted">{{ flag_descriptions.get(name, '') }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="muted">Nothing flagged.</p>{% endif %}
+  </section>
+
+  <section>
+    <h2>Recent runs</h2>
+    <table class="compact">
+      <tr><th>#</th><th>Trigger</th><th>Status</th><th>Seen</th><th>New</th><th>Failed</th><th>Finished</th></tr>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.id }}</td><td>{{ r.trigger_source }}</td>
+        <td><span class="status {{ r.status }}">{{ r.status }}</span></td>
+        <td class="num">{{ r.files_seen }}</td><td class="num">{{ r.files_new }}</td><td class="num">{{ r.files_failed }}</td>
+        <td class="muted">{{ r.finished_at or '' }}</td>
+      </tr>
+      {% else %}<tr><td colspan="7" class="muted">No runs yet.</td></tr>{% endfor %}
+    </table>
+    {% if watch_dir %}<p class="muted">Server watch dir: <code>{{ watch_dir }}</code></p>{% endif %}
+  </section>
+</div>
+
+<section>
+  <h2>Flagged entries <a class="more" href="/entries?flag=any">all</a></h2>
+  <table>
+    <tr><th>#</th><th>Date</th><th>Property</th><th>Payroll.Batch</th><th>Lines</th><th>Debit</th><th>Flags</th><th>Batch folder</th></tr>
+    {{ entry_rows(flagged) }}
+    {% if not flagged %}<tr><td colspan="8" class="muted">None.</td></tr>{% endif %}
+  </table>
+</section>
+
+<section>
+  <h2>Most recent entries <a class="more" href="/entries">all</a></h2>
+  <table>
+    <tr><th>#</th><th>Date</th><th>Property</th><th>Payroll.Batch</th><th>Lines</th><th>Debit</th><th>Flags</th><th>Batch folder</th></tr>
+    {{ entry_rows(recent) }}
+  </table>
+</section>
+{% endblock %}
