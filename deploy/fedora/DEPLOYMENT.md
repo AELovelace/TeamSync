@@ -17,7 +17,28 @@ Installs TeamSync as:
 
 ## First install
 
-1. Copy the repo to `/opt/teamsync` (WinSCP or `git clone`). `.venv`, `storage` and `example-data` are not needed.
+One line on a fresh Fedora host (clones `main` from GitHub into `/opt/teamsync`, runs this
+bundle's `install-server.sh`, starts the service):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AELovelace/TeamSync/main/deploy/install.sh | sudo bash
+```
+
+Options go in as environment variables, for example a chosen admin password and a
+different hostname (note the password lands in shell history; alternatively edit
+`/etc/teamsync/teamsync.env` afterwards and restart):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AELovelace/TeamSync/main/deploy/install.sh \
+  | sudo ADMIN_PASSWORD='long-secret' SERVER_NAME=teamsync.eternalhotels.com bash
+```
+
+`BRANCH=v0.2.0` deploys a tag, `START=0` installs without starting. Re-running the same
+line fast-forwards the checkout and rebuilds the venv; config and data are kept.
+
+Manual equivalent:
+
+1. `git clone https://github.com/AELovelace/TeamSync.git /opt/teamsync`
 2. Run:
 
 ```bash

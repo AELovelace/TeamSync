@@ -9,6 +9,15 @@ Same layout as the Fedora bundle (see [../fedora/DEPLOYMENT.md](../fedora/DEPLOY
 
 This bundle is written alongside the Fedora one but is tested second.
 
+The same one-liner as Fedora detects Ubuntu/Debian and uses this bundle (needs Ubuntu 24.04
+or newer for Python 3.12):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AELovelace/TeamSync/main/deploy/install.sh | sudo bash
+```
+
+Manual equivalent after cloning to `/opt/teamsync`:
+
 ```bash
 sudo bash /opt/teamsync/deploy/ubuntu/install-server.sh
 sudo systemctl start teamsync

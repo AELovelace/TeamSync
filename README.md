@@ -14,7 +14,7 @@ See [PLAN.md](PLAN.md) for scope, data model, decisions and milestones.
 | 2. SQLite layer and CLI | done |
 | 3. FastAPI UI with login | done |
 | 4. Upload API and Box push script | done |
-| 5. Fedora deploy bundle (Ubuntu alongside) | written, not yet run on a server |
+| 5. Fedora deploy bundle (Ubuntu alongside), one-line installer | written, not yet run on a server |
 | 6. Admin, users, tokens, property aliases | done |
 
 ## Running the web app locally
@@ -30,6 +30,16 @@ Without `TEAMSYNC_ADMIN_PASSWORD` the first start generates one and writes it to
 CSV export, entry detail with lines and flags, files with raw download, properties
 (alias raw filename names to canonical properties), admin (users, device tokens, run
 history, upload, sync, reparse). JSON API under `/api/`, docs at `/api/docs`.
+
+## Server install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AELovelace/TeamSync/main/deploy/install.sh | sudo bash
+```
+
+Detects Fedora/RHEL or Ubuntu/Debian, clones the repo to `/opt/teamsync`, sets up the
+service account, venv, systemd unit, nginx with a self-signed cert and the firewall, then
+starts the service. Details and options in [deploy/fedora/DEPLOYMENT.md](deploy/fedora/DEPLOYMENT.md).
 
 ## Workstation push
 
