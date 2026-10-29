@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from typing import Annotated
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from teamsync.db import repo
 from teamsync.services import AuthError, AuthService, IngestionService
+from teamsync.services.auth import TOKEN_SCOPES
 from teamsync.sources import IncomingFile
 
 from . import ops
@@ -298,10 +299,17 @@ def property_delete(conn: Conn, user: PageAdmin, property_id: int):
 # --- admin -----------------------------------------------------------------
 
 
-@router.get("/admin")
-def admin(request: Request, templates: Templates, conn: Conn, user: PageAdmin, settings: AppSettings):
+def _admin_page(
+    request: Request,
+    templates: Templates,
+    conn: sqlite3.Connection,
+    user: sqlite3.Row,
+    settings: AppSettings,
+    *,
+    new_token: str | None = None,
+) -> HTMLResponse:
     auth = AuthService(conn)
-    return render(
+    response = render(
         templates,
         request,
         "admin.html",
@@ -311,8 +319,17 @@ def admin(request: Request, templates: Templates, conn: Conn, user: PageAdmin, s
         runs=repo.recent_runs(conn, 25),
         watch_dir=settings.watch_dir,
         sync_interval=settings.sync_interval_seconds,
-        new_token=request.query_params.get("token"),
+        new_token=new_token,
+        token_scopes=TOKEN_SCOPES,
     )
+    if new_token:
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@router.get("/admin")
+def admin(request: Request, templates: Templates, conn: Conn, user: PageAdmin, settings: AppSettings):
+    return _admin_page(request, templates, conn, user, settings)
 
 
 @router.post("/admin/users")
@@ -362,12 +379,22 @@ def admin_user_delete(conn: Conn, user: PageAdmin, user_id: int):
 
 
 @router.post("/admin/tokens")
-def admin_token_create(conn: Conn, user: PageAdmin, name: Annotated[str, Form()]):
+def admin_token_create(
+    request: Request,
+    templates: Templates,
+    conn: Conn,
+    settings: AppSettings,
+    user: PageAdmin,
+    name: Annotated[str, Form()],
+    scope: Annotated[str, Form()] = "pusher",
+):
     try:
-        _id, plain = AuthService(conn).create_device_token(name, user["username"])
+        _id, plain = AuthService(conn).create_device_token(name, user["username"], scope)
     except AuthError as exc:
         return back("/admin", err=str(exc))
-    return RedirectResponse(url=f"/admin?token={quote(plain)}", status_code=303)
+    # Rendered straight from the POST: the token never travels in a URL, so it stays out
+    # of browser history and the reverse proxy's access log.
+    return _admin_page(request, templates, conn, user, settings, new_token=plain)
 
 
 @router.post("/admin/tokens/{token_id}/revoke")

@@ -134,7 +134,7 @@ def cmd_create_token(settings: Settings, args: argparse.Namespace) -> int:
 
     svc = _service(settings)
     try:
-        _id, plain = AuthService(svc.conn).create_device_token(args.name, "cli")
+        _id, plain = AuthService(svc.conn).create_device_token(args.name, "cli", args.scope)
     except AuthError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -183,6 +183,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     ct = sub.add_parser("create-token", help="mint a device token for the push script; prints it once")
     ct.add_argument("name")
+    ct.add_argument(
+        "--scope",
+        choices=("pusher", "admin"),
+        default="pusher",
+        help="pusher: hash check and upload only (default); admin: every API route",
+    )
     ct.set_defaults(func=cmd_create_token)
     return p
 

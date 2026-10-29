@@ -52,3 +52,7 @@ def test_cli_user_and_token_commands(tmp_path: Path, capsys: pytest.CaptureFixtu
     capsys.readouterr()
     assert main(["--data-dir", data_dir, "create-token", "box-workstation"]) == 0
     assert capsys.readouterr().out.strip().startswith("tsk_")
+    assert main(["--data-dir", data_dir, "create-token", "ops", "--scope", "admin"]) == 0
+    assert capsys.readouterr().out.strip().startswith("tsk_")
+    with pytest.raises(SystemExit):
+        main(["--data-dir", data_dir, "create-token", "x", "--scope", "root"])

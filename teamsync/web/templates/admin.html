@@ -6,6 +6,7 @@
 <div class="flash ok">
   <strong>New device token. Copy it now, it is not shown again.</strong>
   <pre class="token">{{ new_token }}</pre>
+  <span class="muted small">Shown once, in this response only. Reloading or revisiting this page will not bring it back.</span>
 </div>
 {% endif %}
 
@@ -27,18 +28,21 @@
   <h2>Device tokens</h2>
   <p class="muted">Used by the push script on the Box workstation. Send as <code>Authorization: Bearer &lt;token&gt;</code>.</p>
   <table class="compact">
-    <tr><th>Name</th><th>Prefix</th><th>Created</th><th>Last used</th><th></th></tr>
+    <tr><th>Name</th><th>Scope</th><th>Prefix</th><th>Created</th><th>Last used</th><th></th></tr>
     {% for t in tokens %}
     <tr class="{% if t.revoked_at %}muted{% endif %}">
-      <td>{{ t.name }}</td><td class="mono">tsk_{{ t.token_prefix }}_…</td>
+      <td>{{ t.name }}</td><td>{{ t.scope }}</td><td class="mono">tsk_{{ t.token_prefix }}_…</td>
       <td class="muted">{{ t.created_at }} {% if t.created_by %}by {{ t.created_by }}{% endif %}</td>
       <td class="muted">{{ t.last_used_at or 'never' }}</td>
       <td>{% if t.revoked_at %}revoked{% else %}<form method="post" action="/admin/tokens/{{ t.id }}/revoke" class="inline"><button class="link">revoke</button></form>{% endif %}</td>
     </tr>
-    {% else %}<tr><td colspan="5" class="muted">None.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="6" class="muted">None.</td></tr>{% endfor %}
   </table>
   <form method="post" action="/admin/tokens" class="inline">
     <input name="name" placeholder="token name, e.g. edith-workstation" required>
+    <select name="scope" title="pusher: hash check and upload only. admin: every API route.">
+      {% for s in token_scopes %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
     <button>Create token</button>
   </form>
 </section>

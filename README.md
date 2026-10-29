@@ -14,7 +14,7 @@ See [PLAN.md](PLAN.md) for scope, data model, decisions and milestones.
 | 2. SQLite layer and CLI | done |
 | 3. FastAPI UI with login | done |
 | 4. Upload API and Box push script | done |
-| 5. Fedora deploy bundle (Ubuntu alongside), one-line installer | written, not yet run on a server |
+| 5. Fedora deploy bundle (Ubuntu alongside), one-line installer | running on the Fedora host since 2026-10-28; Ubuntu bundle untested |
 | 6. Admin, users, tokens, property aliases | done |
 
 ## Running the web app locally
@@ -44,9 +44,13 @@ starts the service. Details and options in [deploy/fedora/DEPLOYMENT.md](deploy/
 ## Workstation push
 
 `tools/push_from_box.py` hashes everything under the Box folder, asks the server
-which hashes are new, and uploads only those. `tools/Register-PushTask.ps1` wraps
-it in a Windows scheduled task. Create the device token in Admin or with
-`teamsync create-token <name>`. See [deploy/fedora/DEPLOYMENT.md](deploy/fedora/DEPLOYMENT.md).
+which hashes are new (POST `/api/files/known`), and uploads only those.
+`tools/Register-PushTask.ps1` wraps it in a Windows scheduled task that runs under
+S4U logon, so it keeps running while you are signed out. Create the device token in
+Admin or with `teamsync create-token <name>`. Tokens have a scope: `pusher` (the
+default) may only check hashes and upload; `admin` may call every API route. The
+token is shown once, in the response to the create request, and never in a URL.
+See [deploy/fedora/DEPLOYMENT.md](deploy/fedora/DEPLOYMENT.md).
 
 ## Development
 
@@ -87,8 +91,10 @@ teamsync/
   parsers/           readers (csv, calamine) -> je_rows -> rules
   db/                sqlite connection, numbered SQL migrations, repo functions
   sources/           FileSource protocol, LocalDirectorySource
-  services/          IngestionService (store, parse, flag, reparse)
+  services/          IngestionService (store, parse, flag, reparse), AuthService
+  web/               FastAPI app, page and API routers, Jinja templates, static css
 tests/               pytest suite; tests/fixtures are synthetic
-tools/               generate_fixtures.py
+tools/               push_from_box.py, Register-PushTask.ps1, generate_fixtures.py
+deploy/              install.sh one-liner, fedora/ and ubuntu/ bundles
 example-data/        real sample exports, gitignored; tests use them when present
 ```

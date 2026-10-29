@@ -81,13 +81,17 @@ def test_device_tokens(auth: AuthService) -> None:
     tid, plain = auth.create_device_token("workstation", "admin")
     assert plain.startswith("tsk_") and len(plain.split("_", 2)[1]) == 8
     row = auth.verify_device_token(plain)
-    assert row is not None and row["name"] == "workstation"
-    assert auth.list_device_tokens()[0]["last_used_at"]
+    assert row is not None and row["name"] == "workstation" and row["scope"] == "pusher"
+    _, ops = auth.create_device_token("ops", "admin", "admin")
+    assert auth.verify_device_token(ops)["scope"] == "admin"
+    with pytest.raises(AuthError, match="Scope"):
+        auth.create_device_token("x", None, "root")
+    assert auth.list_device_tokens()[-1]["last_used_at"]
     assert auth.verify_device_token(plain[:-1] + "x") is None
     assert auth.verify_device_token("tsk_deadbeef_whatever") is None
     assert auth.verify_device_token("nonsense") is None
     auth.revoke_device_token(tid)
     assert auth.verify_device_token(plain) is None
-    assert auth.list_device_tokens()[0]["revoked_at"]
+    assert auth.list_device_tokens()[-1]["revoked_at"]
     with pytest.raises(AuthError):
         auth.create_device_token("   ", None)

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
+import re
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -31,11 +33,30 @@ def admin(client: TestClient) -> TestClient:
     return client
 
 
+def token_from_page(html: str) -> str:
+    m = re.search(r'<pre class="token">(tsk_[^<]+)</pre>', html)
+    assert m, "token not shown on the page"
+    return m.group(1)
+
+
+def mint(admin: TestClient, name: str, scope: str | None = None) -> str:
+    data = {"name": name} | ({"scope": scope} if scope else {})
+    r = admin.post("/admin/tokens", data=data, follow_redirects=False)
+    # The token comes back in the POST response body, never in a redirect URL.
+    assert r.status_code == 200, r.text
+    assert r.headers["cache-control"] == "no-store"
+    return token_from_page(r.text)
+
+
 @pytest.fixture
 def token(admin: TestClient) -> str:
-    r = admin.post("/admin/tokens", data={"name": "test-box"}, follow_redirects=False)
-    assert r.status_code == 303
-    return r.headers["location"].split("token=")[1]
+    """A pusher-scoped token, the default and what the workstation gets."""
+    return mint(admin, "test-box")
+
+
+@pytest.fixture
+def admin_token(admin: TestClient) -> str:
+    return mint(admin, "ops", "admin")
 
 
 def upload(client: TestClient, path: Path, token: str, **fields: str) -> dict:
@@ -106,11 +127,53 @@ def test_api_requires_auth(client: TestClient) -> None:
 
 
 def test_known_hashes_validates_input(client: TestClient, token: str) -> None:
-    r = client.get("/api/files/known?hashes=zz", headers={"Authorization": f"Bearer {token}"})
-    assert r.status_code == 400
+    headers = {"Authorization": f"Bearer {token}"}
+    assert client.get("/api/files/known?hashes=zz", headers=headers).status_code == 400
+    assert client.post("/api/files/known", json={"hashes": ["zz"]}, headers=headers).status_code == 400
+    assert client.post("/api/files/known", json={"hashes": "abc"}, headers=headers).status_code == 422
+    r = client.post("/api/files/known", json={"hashes": []}, headers=headers)
+    assert r.status_code == 200 and r.json() == {"known": [], "unknown": []}
 
 
-def test_upload_flow(client: TestClient, token: str, fixtures: Path) -> None:
+def test_known_hashes_post_takes_long_lists(client: TestClient, token: str, fixtures: Path) -> None:
+    """A GET with hundreds of digests overflows nginx's 8 KB request line; POST must not care."""
+    src = fixtures / "Sample Hotel JE_100001_200001.CSV"
+    upload(client, src, token)
+    digest = hashlib.sha256(src.read_bytes()).hexdigest()
+    unknown = [f"{i:064x}" for i in range(1, 600)]
+    r = client.post(
+        "/api/files/known",
+        json={"hashes": [digest, *unknown, digest.upper()]},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["known"] == [digest]
+    assert body["unknown"] == unknown
+
+
+def test_pusher_token_cannot_read_or_administer(
+    client: TestClient, token: str, admin_token: str, fixtures: Path
+) -> None:
+    pusher = {"Authorization": f"Bearer {token}"}
+    ops = {"Authorization": f"Bearer {admin_token}"}
+    assert client.get("/api/summary", headers=pusher).status_code == 403
+    assert client.get("/api/entries", headers=pusher).status_code == 403
+    assert client.get("/api/export/entries.csv", headers=pusher).status_code == 403
+    assert client.post("/api/reparse", headers=pusher).status_code == 403
+    assert client.post("/api/sync", headers=pusher).status_code == 403
+    # and what it is for still works
+    assert client.get("/api/files/known", headers=pusher).status_code == 200
+    payload = upload(client, fixtures / "Sample Hotel JE_100001_200001.CSV", token)
+    assert payload["parsed"] == 1
+    assert client.get("/api/files/1/raw", headers=pusher).status_code == 403
+    # an admin-scoped token gets everything
+    assert client.get("/api/summary", headers=ops).json()["entries"] == 1
+    assert client.post("/api/reparse", headers=ops).status_code == 200
+    assert client.get("/api/files/1/raw", headers=ops).status_code == 200
+
+
+def test_upload_flow(client: TestClient, token: str, admin_token: str, fixtures: Path) -> None:
     src = fixtures / "Sample Hotel JE_100001_200001.CSV"
     payload = upload(client, src, token, source_path="Batch A/" + src.name, batch_folder="Batch A")
     assert payload["new"] == 1 and payload["parsed"] == 1
@@ -120,14 +183,13 @@ def test_upload_flow(client: TestClient, token: str, fixtures: Path) -> None:
     again = upload(client, src, token)
     assert again["duplicate"] == 1 and again["new"] == 0
 
-    import hashlib
-
     digest = hashlib.sha256(src.read_bytes()).hexdigest()
     r = client.get(
         f"/api/files/known?hashes={digest},{'0' * 64}", headers={"Authorization": f"Bearer {token}"}
     )
     assert r.json() == {"known": [digest], "unknown": ["0" * 64]}
 
+    token = admin_token  # reads need an admin-scoped token
     r = client.get(f"/api/entries/{entry_id}", headers={"Authorization": f"Bearer {token}"})
     body = r.json()
     assert body["entry"]["batch_folder"] == "Batch A"
@@ -156,13 +218,13 @@ def test_upload_rejects_empty_and_unsupported_is_stored(
     assert payload["files"][0]["parse_status"] == "unsupported"
 
 
-def test_sync_without_watch_dir_is_409(client: TestClient, token: str) -> None:
-    assert client.post("/api/sync", headers={"Authorization": f"Bearer {token}"}).status_code == 409
+def test_sync_without_watch_dir_is_409(client: TestClient, admin_token: str) -> None:
+    assert client.post("/api/sync", headers={"Authorization": f"Bearer {admin_token}"}).status_code == 409
 
 
-def test_export_csv(client: TestClient, token: str, fixtures: Path) -> None:
+def test_export_csv(client: TestClient, token: str, admin_token: str, fixtures: Path) -> None:
     upload(client, fixtures / "Multi Store JE_100003_200003.CSV", token)
-    r = client.get("/api/export/entries.csv", headers={"Authorization": f"Bearer {token}"})
+    r = client.get("/api/export/entries.csv", headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
     rows = list(csv.DictReader(io.StringIO(r.text)))
     assert len(rows) == 6
@@ -216,13 +278,15 @@ def test_admin_user_and_token_management(admin: TestClient) -> None:
     r = admin.post("/admin/users/1/delete", follow_redirects=False)
     assert "cannot+delete+yourself" in r.headers["location"]
 
-    r = admin.post("/admin/tokens", data={"name": "ws"}, follow_redirects=False)
-    plain = r.headers["location"].split("token=")[1]
+    plain = mint(admin, "ws")
     assert plain.startswith("tsk_")
-    assert plain in admin.get(r.headers["location"]).text
+    page = admin.get("/admin").text
+    assert plain not in page and "pusher" in page  # shown once, scope listed
+    r = admin.post("/admin/tokens", data={"name": "bad", "scope": "root"}, follow_redirects=False)
+    assert r.status_code == 303 and "Scope" in r.headers["location"]
     r = admin.post("/admin/tokens/1/revoke", follow_redirects=False)
     assert "revoked" in r.headers["location"]
-    assert admin.get("/api/summary", headers={"Authorization": f"Bearer {plain}"}).status_code == 401
+    assert admin.get("/api/files/known", headers={"Authorization": f"Bearer {plain}"}).status_code == 401
 
 
 def test_property_mapping(admin: TestClient, fixtures: Path) -> None:

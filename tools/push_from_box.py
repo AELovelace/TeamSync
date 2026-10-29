@@ -69,10 +69,24 @@ class Client:
             return json.loads(resp.read().decode("utf-8") or "{}")
 
     def known(self, hashes: list[str]) -> set[str]:
+        """Ask which digests the server already holds. POST with a JSON body, so the
+        request line stays short whatever the folder size (nginx caps it at 8 KB, which
+        about 120 comma-separated digests would blow through)."""
         known: set[str] = set()
-        for i in range(0, len(hashes), 200):
-            chunk = hashes[i : i + 200]
-            payload = self._call("GET", "/api/files/known?hashes=" + ",".join(chunk))
+        for i in range(0, len(hashes), 1000):
+            chunk = hashes[i : i + 1000]
+            try:
+                payload = self._call(
+                    "POST", "/api/files/known", json.dumps({"hashes": chunk}).encode(), "application/json"
+                )
+            except error.HTTPError as exc:
+                if exc.code not in (404, 405):
+                    raise
+                # Older server without the POST form: short GETs that fit the proxy's buffer.
+                payload = {"known": []}
+                for j in range(0, len(chunk), 100):
+                    part = self._call("GET", "/api/files/known?hashes=" + ",".join(chunk[j : j + 100]))
+                    payload["known"].extend(part.get("known", []))
             known.update(payload.get("known", []))
         return known
 

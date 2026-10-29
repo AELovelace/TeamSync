@@ -17,6 +17,7 @@ PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
 ReadWritePaths=__APP_DATA_DIR__
+ReadOnlyPaths=__APP_DIR__
 
 [Install]
 WantedBy=multi-user.target

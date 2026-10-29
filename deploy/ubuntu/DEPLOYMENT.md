@@ -24,6 +24,6 @@ sudo systemctl start teamsync
 curl -k https://teamsync.eternalhotels.com/health
 ```
 
-Update with `sudo bash /opt/teamsync/deploy/ubuntu/update-app.sh`.
+Update with `sudo bash /opt/teamsync/deploy/ubuntu/update-app.sh`. As on Fedora, `/opt/teamsync` is root-owned and read-only to the service account; re-run `install-server.sh` once on installs made before 0.2.0.
 
 Let's Encrypt: `sudo apt-get install certbot python3-certbot-nginx && sudo certbot --nginx -d teamsync.eternalhotels.com`.

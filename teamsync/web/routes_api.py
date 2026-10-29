@@ -9,13 +9,14 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from teamsync.db import repo
 from teamsync.services import IngestionService
 from teamsync.sources import IncomingFile
 
 from . import ops
-from .deps import ApiAdmin, ApiPrincipal, AppSettings, Conn
+from .deps import ApiAdmin, ApiReader, ApiUploader, AppSettings, Conn
 
 router = APIRouter()
 
@@ -26,9 +27,8 @@ def health(conn: Conn) -> dict[str, object]:
     return {"status": "ok", "database": True}
 
 
-@router.get("/api/files/known")
-def files_known(conn: Conn, _: ApiPrincipal, hashes: str = Query("", description="comma-separated sha256")):
-    wanted = [h.strip().lower() for h in hashes.split(",") if h.strip()]
+def _known_response(conn, hashes: list[str]) -> dict[str, list[str]]:
+    wanted = [h.strip().lower() for h in hashes if h and h.strip()]
     bad = [h for h in wanted if len(h) != 64 or any(c not in "0123456789abcdef" for c in h)]
     if bad:
         raise HTTPException(status_code=400, detail=f"Not a sha256 hex digest: {bad[0]}")
@@ -36,11 +36,32 @@ def files_known(conn: Conn, _: ApiPrincipal, hashes: str = Query("", description
     return {"known": sorted(known), "unknown": [h for h in wanted if h not in known]}
 
 
+class KnownRequest(BaseModel):
+    hashes: list[str] = Field(default_factory=list, max_length=5000)
+
+
+@router.get("/api/files/known")
+def files_known(
+    conn: Conn,
+    _: ApiUploader,
+    hashes: str = Query("", description="comma-separated sha256; a few dozen at most, POST for more"),
+):
+    """Short form. The request line has to fit a reverse proxy's header buffer (8 KB on
+    stock nginx), so clients with more than about a hundred hashes use the POST form."""
+    return _known_response(conn, hashes.split(","))
+
+
+@router.post("/api/files/known")
+def files_known_post(conn: Conn, _: ApiUploader, body: KnownRequest):
+    """Which of these sha256 digests the server already holds. JSON body: {\"hashes\": [...]}."""
+    return _known_response(conn, body.hashes)
+
+
 @router.post("/api/upload")
 async def upload(
     request: Request,
     settings: AppSettings,
-    _: ApiAdmin,
+    _: ApiUploader,
     file: Annotated[UploadFile, File()],
     source_path: Annotated[str | None, Form()] = None,
     batch_folder: Annotated[str | None, Form()] = None,
@@ -76,7 +97,7 @@ async def reparse(request: Request, _: ApiAdmin):
 
 
 @router.get("/api/summary")
-def api_summary(conn: Conn, _: ApiPrincipal):
+def api_summary(conn: Conn, _: ApiReader):
     return repo.summary(conn)
 
 
@@ -113,7 +134,7 @@ def _entry_dict(row) -> dict[str, object]:
 @router.get("/api/entries")
 def api_entries(
     conn: Conn,
-    _: ApiPrincipal,
+    _: ApiReader,
     property: str | None = None,
     flag: str | None = None,
     batch_folder: str | None = None,
@@ -130,7 +151,7 @@ def api_entries(
 
 
 @router.get("/api/entries/{entry_id}")
-def api_entry(conn: Conn, _: ApiPrincipal, entry_id: int):
+def api_entry(conn: Conn, _: ApiReader, entry_id: int):
     entry = repo.get_entry(conn, entry_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="No such entry.")
@@ -141,7 +162,7 @@ def api_entry(conn: Conn, _: ApiPrincipal, entry_id: int):
 
 
 @router.get("/api/files/{source_file_id}/raw")
-def api_raw_file(conn: Conn, settings: AppSettings, _: ApiPrincipal, source_file_id: int):
+def api_raw_file(conn: Conn, settings: AppSettings, _: ApiReader, source_file_id: int):
     from fastapi.responses import FileResponse
 
     row = repo.get_source_file(conn, source_file_id)
@@ -182,7 +203,7 @@ EXPORT_COLUMNS = (
 @router.get("/api/export/entries.csv")
 def export_csv(
     conn: Conn,
-    _: ApiPrincipal,
+    _: ApiReader,
     property: str | None = None,
     flag: str | None = None,
     batch_folder: str | None = None,

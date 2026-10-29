@@ -62,7 +62,7 @@ def api_principal(request: Request, conn: Conn) -> dict[str, str]:
         token = AuthService(conn).verify_device_token(auth[7:])
         if token is None:
             raise HTTPException(status_code=401, detail="Invalid or revoked device token.")
-        return {"kind": "device", "name": token["name"], "role": "admin"}
+        return {"kind": "device", "name": token["name"], "role": token["scope"]}
     user = AuthService(conn).user_for_session(request.cookies.get(SESSION_COOKIE))
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication required.")
@@ -75,9 +75,27 @@ def api_admin(principal: Annotated[dict[str, str], Depends(api_principal)]) -> d
     return principal
 
 
+def api_reader(principal: Annotated[dict[str, str], Depends(api_principal)]) -> dict[str, str]:
+    """Routes that return data: a signed-in user of either role, or an admin-scoped token."""
+    if principal["role"] not in ("admin", "viewer"):
+        raise HTTPException(
+            status_code=403, detail="This device token may only check hashes and upload files."
+        )
+    return principal
+
+
+def api_uploader(principal: Annotated[dict[str, str], Depends(api_principal)]) -> dict[str, str]:
+    """The push path: hash check and upload. Any device token, or an admin user."""
+    if principal["role"] not in ("admin", "pusher"):
+        raise HTTPException(status_code=403, detail="Admin role or a device token required.")
+    return principal
+
+
 PageUser = Annotated[sqlite3.Row, Depends(page_user)]
 PageAdmin = Annotated[sqlite3.Row, Depends(page_admin)]
 ApiPrincipal = Annotated[dict[str, str], Depends(api_principal)]
 ApiAdmin = Annotated[dict[str, str], Depends(api_admin)]
+ApiReader = Annotated[dict[str, str], Depends(api_reader)]
+ApiUploader = Annotated[dict[str, str], Depends(api_uploader)]
 Templates = Annotated[Jinja2Templates, Depends(get_templates)]
 AppSettings = Annotated[Settings, Depends(get_settings)]

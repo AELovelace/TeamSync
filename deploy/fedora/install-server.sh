@@ -35,13 +35,20 @@ if [[ ! -f "$APP_ENV_FILE" ]]; then
   install -o root -g "$APP_GROUP" -m 0640 "$APP_DIR/deploy/fedora/env.production.example" "$APP_ENV_FILE"
   echo "   wrote $APP_ENV_FILE from the example; edit it before starting"
 fi
-chown -R "$APP_USER:$APP_GROUP" "$APP_DIR"
 
 echo "== python virtualenv"
 rm -rf "$APP_DIR/.venv"
-sudo -u "$APP_USER" "$PYTHON" -m venv "$APP_DIR/.venv"
-sudo -u "$APP_USER" "$APP_DIR/.venv/bin/pip" install --quiet --upgrade pip
-sudo -u "$APP_USER" "$APP_DIR/.venv/bin/pip" install --quiet "$APP_DIR"
+"$PYTHON" -m venv "$APP_DIR/.venv"
+"$APP_DIR/.venv/bin/pip" install --quiet --upgrade pip
+"$APP_DIR/.venv/bin/pip" install --quiet "$APP_DIR"
+
+# The service account only reads the code. root owns the checkout and the venv; the
+# group (and nginx, for /static) may read and traverse. A compromised app process
+# therefore cannot rewrite its own code. Earlier installs chowned this tree to the
+# service account; re-running this script corrects that.
+echo "== ownership"
+chown -R "root:$APP_GROUP" "$APP_DIR"
+chmod -R u+rwX,go+rX,go-w "$APP_DIR"
 
 echo "== TLS certificate"
 install -d -m 0755 "$TLS_DIR"

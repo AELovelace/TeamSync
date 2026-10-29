@@ -3,7 +3,7 @@
 Installs TeamSync as:
 
 - a `teamsync` service account
-- the checkout at `/opt/teamsync` with a virtualenv in `/opt/teamsync/.venv`
+- the checkout at `/opt/teamsync` with a virtualenv in `/opt/teamsync/.venv`, both root-owned and read-only to the service account
 - app data (SQLite database and raw files) under `/var/lib/teamsync`
 - server-only settings in `/etc/teamsync/teamsync.env`
 - a `systemd` service named `teamsync` running `teamsync serve` on `127.0.0.1:8000`
@@ -55,7 +55,7 @@ curl http://127.0.0.1:8000/health
 curl -k https://teamsync.eternalhotels.com/health
 ```
 
-5. Sign in as `admin`, open Admin, create a device token for the workstation, and change the admin password.
+5. Sign in as `admin`, open Admin, create a device token for the workstation, and change the admin password. Leave the token's scope at `pusher`: it can only check hashes and upload. An `admin` token can call every API route (entries, export, reparse) and is for scripts that read data. The token is shown once, in the page that answers the create request; it is never put in a URL.
 
 ## Workstation push
 
@@ -68,6 +68,12 @@ On the Box workstation, from a checkout of this repo:
 
 Drop `-Insecure` once the server has a trusted certificate, or pass `-CaBundle` with the self-signed cert exported as PEM. The task runs `tools/push_from_box.py`, which uploads only files whose SHA-256 the server has not seen. Log: `%LOCALAPPDATA%\TeamSync\push.log`.
 
+The task is registered with S4U logon: it runs as your account whether or not you are signed in, and no password is stored. Box Drive only syncs while you are signed in, so a signed-out run can only push files that had already arrived. To re-register (new interval, or an older registration that used interactive logon) without retyping the token:
+
+```powershell
+.\tools\Register-PushTask.ps1 -IntervalMinutes 15
+```
+
 ## Updating
 
 ```bash
@@ -75,6 +81,8 @@ sudo bash /opt/teamsync/deploy/fedora/update-app.sh
 ```
 
 Pulls if the checkout is a git repo, reinstalls the package into the venv, restarts the service, and hits `/health`. Migrations run automatically at startup.
+
+Installs made before 0.2.0 left `/opt/teamsync` owned by the service account. Run `sudo bash /opt/teamsync/deploy/fedora/install-server.sh` once more (it is safe to repeat) to move ownership to root and pick up the `ReadOnlyPaths` line in the unit.
 
 ## Swapping to Let's Encrypt
 
@@ -102,3 +110,6 @@ Raw files under `files/` are immutable once written, so a plain copy is safe.
 - `502` from nginx: the app is down. `journalctl -u teamsync -n 100`.
 - `403` on `/static/`: SELinux context. `restorecon -R /opt/teamsync/teamsync/web/static`.
 - Login loops back to the form behind the proxy: `TEAMSYNC_COOKIE_SECURE=true` requires HTTPS end to end; confirm nginx sets `X-Forwarded-Proto https` and you are not hitting port 8000 directly over plain HTTP.
+- Push log says `HTTP 403`: the token is `pusher`-scoped and the script is trying something other than hash check or upload, or an `admin` route was called with it. Check the scope in Admin.
+- Push log says `HTTP 414`: a pre-0.2.0 server (GET hash check) with more than about 120 files in the Box folder. Update the server; the 0.2.0 script POSTs.
+- Push log says `HTTP 405` on the hash check: 0.2.0 script against a pre-0.2.0 server. The script falls back to short GETs; update the server anyway.

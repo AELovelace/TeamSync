@@ -4,7 +4,9 @@ Passwords: scrypt with a per-user salt, stored as ``scrypt$N$r$p$salt$hash``.
 Sessions: random 256-bit tokens in a cookie, 7 day lifetime.
 Device tokens: ``tsk_<prefix>_<secret>``. The prefix is stored in clear for
 lookup, the whole token is stored as a SHA-256 hash. The secret has 256 bits of
-entropy so a plain hash is sufficient and keeps every API call cheap.
+entropy so a plain hash is sufficient and keeps every API call cheap. Each token
+has a scope: ``pusher`` (hash check and upload only, for the workstation script)
+or ``admin`` (every API route).
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ SESSION_TTL = dt.timedelta(days=7)
 PASSWORD_MIN_LENGTH = 10
 ROLES = ("admin", "viewer")
 TOKEN_PREFIX_TAG = "tsk"
+TOKEN_SCOPES = ("pusher", "admin")
 
 
 class AuthError(Exception):
@@ -178,15 +181,20 @@ class AuthService:
 
     # --- device tokens -----------------------------------------------------
 
-    def create_device_token(self, name: str, created_by: str | None) -> tuple[int, str]:
+    def create_device_token(
+        self, name: str, created_by: str | None, scope: str = "pusher"
+    ) -> tuple[int, str]:
         name = name.strip()
         if not name:
             raise AuthError("Token name is required.")
+        if scope not in TOKEN_SCOPES:
+            raise AuthError(f"Scope must be one of {', '.join(TOKEN_SCOPES)}.")
         prefix = secrets.token_hex(4)
         plain = f"{TOKEN_PREFIX_TAG}_{prefix}_{secrets.token_urlsafe(32)}"
         cur = self.conn.execute(
-            "INSERT INTO device_tokens (name, token_prefix, token_hash, created_at, created_by) VALUES (?, ?, ?, ?, ?)",
-            (name, prefix, _hash_token(plain), now_iso(), created_by),
+            "INSERT INTO device_tokens (name, token_prefix, token_hash, scope, created_at, created_by) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (name, prefix, _hash_token(plain), scope, now_iso(), created_by),
         )
         return int(cur.lastrowid), plain
 

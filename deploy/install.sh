@@ -58,8 +58,8 @@ PY
 # --- checkout -----------------------------------------------------------------
 echo "== checkout $REPO_URL ($BRANCH) -> $APP_DIR"
 if [[ -d "$APP_DIR/.git" ]]; then
-  # The installer chowns the tree to the service account; run git as whoever owns it
-  # so later update-app.sh runs (which also use that account) keep working.
+  # Run git as whoever owns the tree (root on current installs; older installs chowned
+  # it to the service account, and install-server.sh below corrects that).
   owner="$(stat -c %U "$APP_DIR")"
   run_git() { if [[ $owner != root ]] && id "$owner" >/dev/null 2>&1; then sudo -u "$owner" git "$@"; else git "$@"; fi; }
   run_git -C "$APP_DIR" remote set-url origin "$REPO_URL"

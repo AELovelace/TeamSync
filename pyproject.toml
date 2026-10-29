@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "teamsync"
-version = "0.1.0"
+version = "0.2.0"
 description = "Ingest NetSuite journal-entry exports from Box into SQLite behind a small web app"
 requires-python = ">=3.12"
 dependencies = [
