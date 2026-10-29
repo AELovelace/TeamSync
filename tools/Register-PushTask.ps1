@@ -9,6 +9,9 @@
   password is stored. Box Drive itself only syncs while you are signed in, so a signed-out
   run can only ever see files that had already arrived.
 
+  Registering an S4U task needs an elevated PowerShell (Run as administrator). Pass
+  -Interactive to register a sign-in-only task from a normal prompt instead.
+
 .EXAMPLE
   .\tools\Register-PushTask.ps1 -Root "C:\Users\Edith\Box\Singh JE Reports" `
       -Server https://teamsync.eternalhotels.com -Token tsk_... -IntervalMinutes 15 -Insecure
@@ -25,6 +28,7 @@ param(
   [int] $IntervalMinutes = 15,
   [switch] $Insecure,
   [string] $CaBundle,
+  [switch] $Interactive,
   [string] $TaskName = "TeamSync Box Push",
   [string] $Python = "python"
 )
@@ -32,6 +36,12 @@ param(
 $ErrorActionPreference = "Stop"
 $script = Join-Path $PSScriptRoot "push_from_box.py"
 if (-not (Test-Path $script)) { throw "push_from_box.py not found next to this script" }
+
+$isElevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+  [Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $Interactive -and -not $isElevated) {
+  throw "Registering an S4U task (runs while signed out) needs an elevated PowerShell. Re-run from 'Run as administrator', or pass -Interactive for a sign-in-only task."
+}
 
 $appDir = Join-Path $env:LOCALAPPDATA "TeamSync"
 New-Item -ItemType Directory -Force $appDir | Out-Null
@@ -66,11 +76,24 @@ $action = New-ScheduledTaskAction -Execute $wrapper
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
   -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -RepetitionDuration (New-TimeSpan -Days 3650)
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
-# S4U: runs as this user without an interactive session and without storing a password.
-# Local files only (the Box folder is local), which is all the push needs.
-$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType S4U -RunLevel Limited
+$userId = "$env:USERDOMAIN\$env:USERNAME"
+if ($Interactive) {
+  $logon = "Interactive"
+  $how = "only while signed in"
+} else {
+  # S4U: runs as this user without an interactive session and without storing a password.
+  # Local files only (the Box folder is local), which is all the push needs.
+  $logon = "S4U"
+  $how = "also while signed out"
+}
+$principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType $logon -RunLevel Limited
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
-Write-Host "Registered '$TaskName' every $IntervalMinutes minutes as $env:USERDOMAIN\$env:USERNAME (S4U, runs when signed out)."
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
+  -Principal $principal -Force -ErrorAction Stop | Out-Null
+$registered = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+if ($registered.Principal.LogonType -ne $logon) {
+  throw "Task exists but its logon type is $($registered.Principal.LogonType), not $logon"
+}
+Write-Host "Registered '$TaskName' every $IntervalMinutes minutes as $userId ($logon, runs $how)."
 Write-Host "Wrapper: $wrapper  Log: $log"
 Write-Host "Run now with: Start-ScheduledTask -TaskName '$TaskName'"
