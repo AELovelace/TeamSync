@@ -342,6 +342,82 @@ def export_lines(conn: sqlite3.Connection, f: EntryFilter | None = None) -> list
     return list(conn.execute(sql, params))
 
 
+# --- account map -----------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AccountMapRow:
+    financial_internal_id: str
+    financial_number: str
+    financial_name: str
+    financial_type: str | None
+    stat_number: str
+    stat_internal_id: str | None
+    stat_name: str | None
+
+
+def upsert_account_map_row(conn: sqlite3.Connection, row: AccountMapRow, source: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO account_map (
+          financial_internal_id, financial_number, financial_name, financial_type,
+          stat_number, stat_internal_id, stat_name, source, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(financial_internal_id) DO UPDATE SET
+          financial_number = excluded.financial_number,
+          financial_name = excluded.financial_name,
+          financial_type = excluded.financial_type,
+          stat_number = excluded.stat_number,
+          stat_internal_id = excluded.stat_internal_id,
+          stat_name = excluded.stat_name,
+          source = excluded.source,
+          updated_at = excluded.updated_at
+        """,
+        (
+            row.financial_internal_id,
+            row.financial_number,
+            row.financial_name,
+            row.financial_type,
+            row.stat_number,
+            row.stat_internal_id,
+            row.stat_name,
+            source,
+            now_iso(),
+        ),
+    )
+
+
+def list_account_map(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Every mapped account with how many stored journal lines reference it."""
+    return list(
+        conn.execute(
+            """
+            SELECT am.*,
+                   (SELECT COUNT(*) FROM journal_lines jl
+                    WHERE jl.account_ref = am.financial_internal_id) AS line_count
+            FROM account_map am
+            ORDER BY line_count DESC, am.financial_number
+            """
+        )
+    )
+
+
+def account_refs_not_in_map(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Account values on stored lines that have no account_map row."""
+    return list(
+        conn.execute(
+            """
+            SELECT jl.account_ref, COUNT(*) AS line_count
+            FROM journal_lines jl
+            LEFT JOIN account_map am ON am.financial_internal_id = jl.account_ref
+            WHERE am.financial_internal_id IS NULL
+            GROUP BY jl.account_ref
+            ORDER BY line_count DESC, jl.account_ref
+            """
+        )
+    )
+
+
 # --- properties ------------------------------------------------------------
 
 

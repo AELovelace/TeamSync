@@ -74,7 +74,14 @@ Settings come from `TEAMSYNC_*` environment variables or a `.env` file.
 .venv\Scripts\teamsync list --flag suspect_column_shift
 .venv\Scripts\teamsync show 12
 .venv\Scripts\teamsync reparse
+.venv\Scripts\teamsync import-account-map account-lookup.csv
+.venv\Scripts\teamsync account-map
 ```
+
+`import-account-map` loads the financial-to-stat account map from the CSV printed
+by SynchroHRM's `deploy/netsuite-account-lookup.sh`. One bad row rejects the whole
+file. Re-import after new stat accounts are created in NetSuite. `account-map`
+prints the map and how many stored journal lines it covers.
 
 `ingest-dir` walks a folder recursively, skips Box and Windows housekeeping
 files, deduplicates by SHA-256, keeps the raw bytes under `<data-dir>/files/`,

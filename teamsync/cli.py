@@ -89,6 +89,42 @@ def cmd_list(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_import_account_map(settings: Settings, args: argparse.Namespace) -> int:
+    from teamsync.services import AccountMapError, import_account_map
+
+    path = Path(args.path)
+    if not path.is_file():
+        print(f"not a file: {path}", file=sys.stderr)
+        return 2
+    svc = _service(settings)
+    try:
+        rows = import_account_map(svc.conn, path)
+    except AccountMapError as exc:
+        print(f"nothing imported: {exc}", file=sys.stderr)
+        return 1
+    waiting = sum(1 for r in rows if r.stat_internal_id is None)
+    print(f"imported {len(rows)} accounts: {len(rows) - waiting} mapped, {waiting} waiting on a stat account")
+    return 0
+
+
+def cmd_account_map(settings: Settings, _: argparse.Namespace) -> int:
+    svc = _service(settings)
+    rows = repo.list_account_map(svc.conn)
+    for r in rows:
+        print(
+            f"{r['financial_internal_id']:>6} {r['financial_name'][:40]:40} {r['stat_number']} "
+            f"stat_id={r['stat_internal_id'] or 'MISSING':8} lines={r['line_count']}"
+        )
+    not_in_map = repo.account_refs_not_in_map(svc.conn)
+    for r in not_in_map:
+        print(f"not in map: {r['account_ref']!r} lines={r['line_count']}")
+    mapped = sum(r["line_count"] for r in rows if r["stat_internal_id"])
+    waiting = sum(r["line_count"] for r in rows if not r["stat_internal_id"])
+    other = sum(r["line_count"] for r in not_in_map)
+    print(f"lines: mapped={mapped} waiting_on_stat_account={waiting} not_in_map={other}")
+    return 0
+
+
 def cmd_serve(settings: Settings, _: argparse.Namespace) -> int:
     from teamsync.web.app import serve
 
@@ -167,6 +203,14 @@ def build_parser() -> argparse.ArgumentParser:
     ls.add_argument("--property")
     ls.add_argument("--limit", type=int, default=100)
     ls.set_defaults(func=cmd_list)
+
+    iam = sub.add_parser("import-account-map", help="load the NetSuite account lookup CSV; all rows or none")
+    iam.add_argument("path")
+    iam.set_defaults(func=cmd_import_account_map)
+
+    sub.add_parser("account-map", help="print the account map and journal-line coverage").set_defaults(
+        func=cmd_account_map
+    )
 
     sub.add_parser("serve", help="run the web app under uvicorn").set_defaults(func=cmd_serve)
 

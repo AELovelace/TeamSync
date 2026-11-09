@@ -310,3 +310,10 @@ Resolved 2026-10-29:
 - **Push task logon:** S4U, so pushes continue while signed out. Box Drive only syncs while
   signed in, so this just picks up anything that landed before sign-out.
 - **Phase 2:** still parked. Nothing pulled forward.
+
+Resolved 2026-11-09:
+
+- **Account map:** `account_map` holds financial internal ID to stat account, stat number =
+  financial number + 900000. Loaded by `teamsync import-account-map` from the NetSuite lookup
+  CSV, all rows or none. The data stays out of git. A NULL stat ID means the stat account does
+  not exist in NetSuite yet. Lines are not remapped yet and posting stays disabled.
