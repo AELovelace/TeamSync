@@ -238,9 +238,27 @@ def get_entry(conn: sqlite3.Connection, entry_id: int) -> sqlite3.Row | None:
     ).fetchone()
 
 
+# The stored line keeps the account value from the file. The stat account is resolved
+# through account_map at read time, so a re-import or reparse is reflected immediately.
+# account_status is mapped | stat_account_missing | not_in_map.
+_STAT_JOIN = " LEFT JOIN account_map am ON am.financial_internal_id = jl.account_ref"
+_STAT_COLUMNS = (
+    "am.stat_internal_id AS stat_account_id, am.stat_number AS stat_account_number, "
+    "am.stat_name AS stat_account_name, am.financial_name AS financial_account_name, "
+    "CASE WHEN am.financial_internal_id IS NULL THEN 'not_in_map' "
+    "WHEN am.stat_internal_id IS NULL THEN 'stat_account_missing' "
+    "ELSE 'mapped' END AS account_status"
+)
+
+
 def get_lines(conn: sqlite3.Connection, entry_id: int) -> list[sqlite3.Row]:
+    """Lines as parsed, plus the stat account each one maps to."""
     return list(
-        conn.execute("SELECT * FROM journal_lines WHERE journal_entry_id = ? ORDER BY line_no", (entry_id,))
+        conn.execute(
+            f"SELECT jl.*, {_STAT_COLUMNS} FROM journal_lines jl{_STAT_JOIN} "
+            "WHERE jl.journal_entry_id = ? ORDER BY jl.line_no",
+            (entry_id,),
+        )
     )
 
 
@@ -326,16 +344,18 @@ def distinct_batch_folders(conn: sqlite3.Connection) -> list[str]:
 
 
 def export_lines(conn: sqlite3.Connection, f: EntryFilter | None = None) -> list[sqlite3.Row]:
-    """Flattened lines with their entry header, for CSV export."""
+    """Flattened lines with their entry header and stat account, for CSV export."""
     where, params = _entry_where(f or EntryFilter(limit=1_000_000))
     sql = (
         "SELECT je.id AS entry_id, COALESCE(p.canonical_name, je.property_name_raw) AS property, "
         "je.property_name_raw, je.payroll_id, je.batch_id, je.run_id, je.header_memo, je.posting_period, "
         "je.tran_date, sf.original_name, sf.batch_folder, je.validation_flags, "
         "jl.line_no, jl.subsidiary, jl.account_ref, jl.debit, jl.credit, jl.line_memo, "
-        "jl.department_ref, jl.department_style, jl.class_ref, jl.location_ref"
+        "jl.department_ref, jl.department_style, jl.class_ref, jl.location_ref, "
+        + _STAT_COLUMNS
         + _ENTRY_FROM
         + " JOIN journal_lines jl ON jl.journal_entry_id = je.id"
+        + _STAT_JOIN
         + where
         + " ORDER BY je.tran_date, je.property_name_raw, je.id, jl.line_no"
     )

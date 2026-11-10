@@ -52,14 +52,23 @@
 {% endif %}
 
 <section>
-  <h2>Lines <span class="muted">{{ lines | length }}</span></h2>
+  {% set unmapped = lines | rejectattr('account_status', 'equalto', 'mapped') | list | length %}
+  <h2>Lines <span class="muted">{{ lines | length }}</span>{% if unmapped %} <span class="flag bad">{{ unmapped }} without a stat account</span>{% endif %}</h2>
   <table class="lines">
-    <tr><th>#</th><th>Sub</th><th>Account</th><th>Debit</th><th>Credit</th><th>Department</th><th>Style</th><th>Class</th><th>Loc</th><th>Memo</th></tr>
+    <tr><th>#</th><th>Sub</th><th>Stat account</th><th>Debit</th><th>Credit</th><th>Department</th><th>Style</th><th>Class</th><th>Loc</th><th>Memo</th></tr>
     {% for l in lines %}
     <tr>
       <td class="num">{{ l.line_no }}</td>
       <td>{{ l.subsidiary }}</td>
-      <td class="{% if not l.account_is_numeric %}bad-text{% endif %}">{{ l.account_ref }}</td>
+      <td>
+        {% if l.account_status == 'mapped' %}
+        <span title="{{ l.stat_account_name }}">{{ l.stat_account_id }}</span>
+        <span class="muted small" title="{{ l.financial_account_name }}">from {{ l.account_ref }}</span>
+        {% else %}
+        <span class="{% if not l.account_is_numeric %}bad-text{% endif %}">{{ l.account_ref }}</span>
+        <span class="flag bad">{{ 'no stat account' if l.account_status == 'stat_account_missing' else 'not in map' }}</span>
+        {% endif %}
+      </td>
       <td class="num">{{ l.debit or '' }}</td>
       <td class="num">{{ l.credit or '' }}</td>
       <td>{{ l.department_ref }}</td>

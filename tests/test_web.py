@@ -228,8 +228,43 @@ def test_export_csv(client: TestClient, token: str, admin_token: str, fixtures: 
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
     rows = list(csv.DictReader(io.StringIO(r.text)))
     assert len(rows) == 6
-    assert rows[0]["account_ref"] == "Payroll Clearing" and rows[0]["credit"] == "3000.00"
+    assert "account_ref" not in rows[0]
+    assert rows[0]["account_status"] == "not_in_map" and rows[0]["stat_account_id"] == ""
+    assert rows[0]["credit"] == "3000.00"
     assert "multi_subsidiary" in rows[0]["validation_flags"]
+
+
+def test_export_and_entry_page_use_stat_accounts(
+    client: TestClient, admin: TestClient, token: str, admin_token: str, fixtures: Path, tmp_path: Path
+) -> None:
+    from teamsync.db import open_database, repo
+
+    entry_id = upload(client, fixtures / "Multi Store JE_100003_200003.CSV", token)["files"][0]["entry_id"]
+    c = open_database(tmp_path / "data" / "teamsync.sqlite3")
+    repo.upsert_account_map_row(
+        c, repo.AccountMapRow("767", "6101", "6101 Regular", "Expense", "906101", "1348", "906101 (Stat) Regular"), "t.csv"
+    )
+    repo.upsert_account_map_row(
+        c, repo.AccountMapRow("773", "6201", "6201 ER Taxes", "Expense", "906201", None, None), "t.csv"
+    )
+    c.commit()
+    c.close()
+
+    r = client.get("/api/export/entries.csv", headers={"Authorization": f"Bearer {admin_token}"})
+    rows = list(csv.DictReader(io.StringIO(r.text)))
+    by_line = {int(row["line_no"]): row for row in rows}
+    assert (by_line[2]["stat_account_id"], by_line[2]["stat_account_number"]) == ("1348", "906101")
+    assert by_line[2]["account_status"] == "mapped"
+    assert by_line[3]["account_status"] == "stat_account_missing" and by_line[3]["stat_account_id"] == ""
+    assert by_line[1]["account_status"] == "not_in_map"
+    assert "767" not in r.text.split("\n", 1)[1].replace("100003", "")  # no financial ID in the body
+
+    body = client.get(f"/api/entries/{entry_id}", headers={"Authorization": f"Bearer {admin_token}"}).json()
+    line2 = next(ln for ln in body["lines"] if ln["line_no"] == 2)
+    assert line2["account_ref"] == "767" and line2["stat_account_id"] == "1348"
+
+    page = admin.get(f"/entries/{entry_id}").text
+    assert "4 without a stat account" in page and "from 767" in page
 
 
 # --- admin pages -----------------------------------------------------------

@@ -189,7 +189,12 @@ EXPORT_COLUMNS = (
     "validation_flags",
     "line_no",
     "subsidiary",
-    "account_ref",
+    # Accounting: financial internal IDs never leave TeamSync. The export carries the
+    # stat account only; a line without one has blank stat columns and says why in
+    # account_status (stat_account_missing | not_in_map). The raw value is on the entry page.
+    "stat_account_id",
+    "stat_account_number",
+    "account_status",
     "debit",
     "credit",
     "line_memo",

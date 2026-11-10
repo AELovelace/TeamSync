@@ -213,7 +213,7 @@ JSON API for the push script and future consumers:
   Both accept a `pusher`-scoped token; everything else needs `admin` or a signed-in user.
 - `POST /api/sync` manual trigger.
 - `GET /api/entries`, `GET /api/entries/{id}` JSON mirrors of the pages.
-- `GET /api/export/entries.csv` flattened lines, for whoever wants Excel.
+- `GET /api/export/entries.csv` flattened lines with stat accounts (no financial IDs), for whoever wants Excel.
 
 ## 7. Repo layout
 
@@ -316,4 +316,12 @@ Resolved 2026-11-09:
 - **Account map:** `account_map` holds financial internal ID to stat account, stat number =
   financial number + 900000. Loaded by `teamsync import-account-map` from the NetSuite lookup
   CSV, all rows or none. The data stays out of git. A NULL stat ID means the stat account does
-  not exist in NetSuite yet. Lines are not remapped yet and posting stays disabled.
+  not exist in NetSuite yet. Posting stays disabled.
+
+Resolved 2026-11-10:
+
+- **Line remap:** done at read time. `journal_lines.account_ref` keeps the value from the file;
+  entry pages, `/api/entries/{id}` and the CSV export join `account_map` for the stat account and
+  an `account_status` of `mapped`, `stat_account_missing` or `not_in_map`. A re-import or reparse
+  needs no backfill. The CSV export carries only the stat account, never the financial ID; the
+  entry page and the admin-scoped API still show the raw value for tracing.
